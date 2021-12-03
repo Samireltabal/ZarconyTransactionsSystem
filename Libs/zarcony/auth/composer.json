@@ -1,0 +1,36 @@
+{
+    "name": "zarcony/auth",
+    "description": "Authentication Package",
+    "type": "library",
+    "require": {
+        "spatie/laravel-medialibrary": "^8.10.2",
+        "spatie/laravel-permission": "^5.3"
+    },
+    "license": "MIT",
+    "autoload": {
+        "psr-4": {
+            "Zarcony\\Auth\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "Samir M. Eltabal",
+            "email": "samir.m.eltabal@gmail.com"
+        }
+    ],
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Zarcony\\Auth\\ZarconyAuthServiceProvider"
+            ],
+            "aliases": {
+                "ZarconyAuth": "Zarcony\\Auth\\ZarconyAuthFacade"
+            }
+        }
+    },
+    "config": {
+        "sort-packages": true
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true
+}

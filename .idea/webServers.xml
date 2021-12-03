@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="WebServers">
+    <option name="servers">
+      <webServer id="d870eeb5-8dd7-4712-8c04-6edfae623dde" name="synciteg">
+        <fileTransfer accessType="SFTP" host="synciteg.xyz" port="22" sshConfigId="16f167c0-5223-49de-9a17-76b5b85a6586" sshConfig="root@synciteg.xyz:22 password">
+          <advancedOptions>
+            <advancedOptions dataProtectionLevel="Private" passiveMode="true" shareSSLContext="true" />
+          </advancedOptions>
+        </fileTransfer>
+      </webServer>
+    </option>
+  </component>
+</project>

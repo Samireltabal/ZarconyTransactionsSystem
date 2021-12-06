@@ -10,7 +10,7 @@
   use Zarcony\Auth\Notifications\userVerified;
   use Zarcony\Auth\Notifications\PasswordResetSuccess;
   use Laravel\Passport\TokenRepository;
-  use App\User;
+  use App\Models\User;
   use Zarcony\Auth\Models\PasswordReset;
   use Illuminate\Http\Request;
   use Hash;
@@ -31,6 +31,7 @@
           'verify',
           'reverify',
           'logout',
+          'set_avatar',
           'update'
         ]
       );
@@ -106,7 +107,9 @@
      *  @transformerModel App\Models\User
      */
     public function user() {
-      return response()->json(\Auth::user(), 200);
+      $user_id = \Auth::user()->id;
+      $user = User::with(['notifications', 'wallet', 'unreadNotifications'])->find($user_id);
+      return response()->json($user, 200);
     }
 
     /**
@@ -215,6 +218,26 @@
       $user->save();
       return response()->json($user, 200);
   }
+
+  
+    /**
+     * Post - /auth/avatar
+     * 
+     * set user avatar
+     * @authenticated
+     *
+     * @bodyParam avatar file required the avatar file.
+     */
+
+    public function set_avatar(Request $request) {
+      $validation = $request->validate([
+          'avatar' => 'required'
+      ]);
+      $user = Auth::user();
+      $media = $user->addMediaFromRequest('avatar')->toMediaCollection('avatars');
+      return $user;
+  }
+
 
   /**
    * post /auth/logout

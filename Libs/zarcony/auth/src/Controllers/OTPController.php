@@ -5,7 +5,7 @@ namespace Zarcony\Auth\Controllers;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Zarcony\Auth\Models\Otp;
-use App\User;
+use App\Models\User;
 
 class OTPController extends Controller
 {

@@ -3,8 +3,9 @@
     "description": "Authentication Package",
     "type": "library",
     "require": {
-        "spatie/laravel-medialibrary": "^8.10.2",
-        "spatie/laravel-permission": "^5.3"
+        "spatie/laravel-medialibrary": "^9.9.1",
+        "spatie/laravel-permission": "^5.4",
+        "laravel/passport": "^10.2"
     },
     "license": "MIT",
     "autoload": {

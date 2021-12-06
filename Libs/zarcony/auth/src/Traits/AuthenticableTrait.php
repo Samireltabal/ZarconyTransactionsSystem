@@ -5,17 +5,20 @@
     use Hash;
     use Str;
     use Illuminate\Notifications\Notifiable;
+    use Spatie\MediaLibrary\InteractsWithMedia;
     use Zarcony\Auth\Notifications\PasswordResetRequested;
 
     trait AuthenticableTrait {
-        use HasApiTokens, Notifiable, HasRoles;
+        use HasApiTokens, Notifiable, HasRoles, InteractsWithMedia;
         public $guard_name = 'api';
 
         public function __construct(array $attributes = []) {
             $this->fillable[] = 'uuid';
             $this->fillable[] = 'phone';
-            $this->with[] = 'notifications';
-            $this->with[] = 'unreadNotifications';
+            // $this->with[] = 'notifications';
+            // $this->with[] = 'unreadNotifications';
+            $this->appends[] = 'avatar';
+            $this->hidden[] = 'media';
             $this->appends[] = 'role';
             $this->hidden[] = 'roles';
             parent::__construct($attributes);
@@ -53,5 +56,17 @@
 
         public function scopeUuid($query, $uuid) {
             return $query->where('uuid', '=', $uuid);
+        }
+
+        public function registerMediaCollections(): void
+        {
+            $this->addMediaCollection('avatars')
+            ->singleFile()
+            ->useFallbackUrl('/default-profile.jpg')
+            ->useFallbackPath(public_path('/default-profile.jpg'));
+        }
+
+        public function getAvatarAttribute() {
+            return $this->getFirstMediaUrl('avatars');
         }
     }

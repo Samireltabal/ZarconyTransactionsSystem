@@ -1,0 +1,35 @@
+{
+    "name": "zarcony/transactions",
+    "description": "Transactions Package",
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Samir M. Eltabal",
+            "email": "samir@synciteg.com"
+        }
+    ],
+    "autoload": {
+        "psr-4": {
+            "Zarcony\\Transactions\\": "src/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Zarcony\\Transactions\\ZarconyTransactionsServiceProvider"
+            ],
+            "aliases": {
+                "ZarconyTransactions": "Zarcony\\Transactions\\ZarconyTransactionsFacade"
+            }
+        }
+    },
+    "config": {
+        "sort-packages": true
+    },
+    "prefer-stable": true,
+    "minimum-stability": "dev",
+    "require": {
+        "laravel/framework": "^8.0"
+    }
+}

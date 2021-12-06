@@ -12,6 +12,7 @@ use Zarcony\Transactions\Models\Transaction;
 use Zarcony\Transactions\Models\Wallet;
 use Zarcony\Transactions\Notifications\MoneyRecieved;
 use Zarcony\Transactions\Middlewares\assureLimit;
+use Zarcony\Transactions\Middlewares\TransactionOwnerOnly;
 
 use Zarcony\Transactions\Exceptions\CcNumberException;
 use Zarcony\Transactions\Exceptions\CcDeclinedException;
@@ -21,6 +22,7 @@ class TransactionController extends Controller
 {
     public function __construct() {
         $this->middleware(assureLimit::class)->only(['send_money']);
+        $this->middleware(TransactionOwnerOnly::class)->only(['show_transaction']);
     }
     //
     public function show_transaction($identifier) {
@@ -32,7 +34,6 @@ class TransactionController extends Controller
         'sender.user' => function ($query) {
             $query->select('uuid','phone','name');
         }])->Uuid($identifier)->first();
-        // $$transaction->reciever->user = $transaction->reciever->user->only(['name']);
         return response()->json($transaction, 200);
     }
 
@@ -80,14 +81,18 @@ class TransactionController extends Controller
                 $transaction->is_recharge = true;
             }
             $transaction->save();
-            $reciever = Wallet::uuid($transaction->reciever_identifier)->first()->rechargeBalance($transaction->amount);
+            $reciever = Wallet::uuid($transaction->reciever_identifier)->first();
+            $reciever->rechargeBalance($transaction->amount);
+            $sender = Wallet::uuid($transaction->sender_identifier)->first();
             if(!$from_cc) {
-                $sender = Wallet::uuid($transaction->sender_identifier)->first()->deductBalance($transaction->amount);
+                $sender->deductBalance($transaction->amount);
             }
         } catch (\Throwable $th) {
             \DB::rollback();
         }
         \DB::commit();
+        $reciever->user->notify(new MoneyRecieved($transaction, $reciever->user));
+        $sender->user->notify(new MoneyRecieved($transaction, $reciever->user, true));
         return $transaction;
     }
     
@@ -139,84 +144,22 @@ class TransactionController extends Controller
 
     }
 
-    public function send_money_OFF(CreditRequest $request) {
-        $user = Auth::user();
-        $sender_identifier = $user->wallet->user_id;
-        $reciever = User::find($request->input('reciever_id'));
-        $reciever_identifier = $reciever->wallet->user_id;
-        $data = array(
-         'sender' => $sender_identifier,
-         'reciever' => $reciever_identifier,
-         'state' => self::handleStates('approved'),
-         'amount' => $request->input('amount'),
-         'approved_at' => \Carbon\Carbon::now(),
-         'approved' => true
-        );
-
-        if (!$request->input('from_balance')) {
-            $validation = $request->validate([
-                'ccnumber' => 'required',
-                'ccv' => 'required',
-                'ccname' => 'required',
-                'ccyear' => 'required',
-                'ccmonth' => 'required',
-                'amount' => 'required',
-            ]);
-            $cc_data = $request->only([
-                'ccnumber',
-                'ccname',
-                'ccv',
-                'ccyear',
-                'ccmonth',
-                'amount'
-            ]);
-
-            try {
-                $cc = self::attemptCc($cc_data);
-            } catch (\Exception $th) {
-                if( $th instanceOf CcNumberException) {
-                    $code = 433;
-                } elseif ($th instanceOf CcInSuffiecientException) {
-                    $code = 435;
-                } elseif ($th instanceOf CcDeclinedException) {
-                    $code = 434;
-                }
-                return response()->json([
-                    'error'   => true,
-                    'message'       => $th->getMessage(),
-                    'status_code'   => $code
-                ], $code);
-            }
-            $is_recharge = true;
-        } else {
-            $is_recharge = false;
-        }
-        
-        $transaction = self::do_transaction($data, $reciever, $user, $is_recharge);
-        if($transaction instanceOf Transaction) {
-            $reciever->notify(new MoneyRecieved($transaction, $user));
-            $user->notify(new MoneyRecieved($transaction, $user, true));
-            return response()->json($transaction);
-        } else {
-            return response()->json([
-                'message' => 'something went wrong',
-                'error' => $transaction
-            ], 400);
-        }
-     }
-
     public function my_wallet() {
+
         $user = \Auth::user();
         $wallet = $user->wallet;
         return response()->json($wallet, 200);
+
     }
     public function my_transactions(Request $request) {
         $user = \Auth::user();
         $uuid = $user->uuid;
         $per_page = 10;
+
         if ($request->has('per_page')) {
             $per_page = $request->input('per_page');
         }
+
         $transactions = Transaction::query()->with([
             'state',
             'reciever.user' => function ($q) {
@@ -226,16 +169,13 @@ class TransactionController extends Controller
                 $q->select('uuid','name','phone');
             }
         ]);
-        $transactions = $transactions->where('reciever_identifier', $uuid)->orWhere('sender_identifier', $uuid)->orderBy('created_at','desc')->paginate($per_page);
-        // $transactions = Transaction::with([
-        //     'state',
-        //     'reciever.user' => function ($q) {
-        //         $q->select('uuid','name','phone');
-        //     },
-        //     'sender.user' => function($q) {
-        //         $q->select('uuid','name','phone');
-        //     }
-        // ])->where('reciever_identifier', $uuid)->orWhere('sender_identifier', $uuid)->orderBy('created_at','desc')->paginate();
+
+        $transactions = $transactions
+                        ->where('reciever_identifier', $uuid)
+                        ->orWhere('sender_identifier', $uuid)
+                        ->orderBy('created_at','desc')
+                        ->paginate($per_page);
+
         return response()->json($transactions, 200);
     }
 

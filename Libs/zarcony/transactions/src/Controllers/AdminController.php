@@ -9,7 +9,8 @@ use App\Models\User;
 use Zarcony\Transactions\Jobs\createTransaction;
 use Zarcony\Transactions\Models\TransactionState; 
 use Zarcony\Transactions\Jobs\generateTransactions;
-
+use Zarcony\Transactions\Requests\CreditRequest;
+use Auth;
 class AdminController extends Controller
 {
     public function __construct () {
@@ -36,6 +37,7 @@ class AdminController extends Controller
              return response()->json($transaction);
          } else {
              return response()->json([
+                 'debug'   => $transaction,
                  'message' => 'something went wrong',
                  'error' => $transaction
              ], 400);

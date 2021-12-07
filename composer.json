@@ -13,7 +13,8 @@
         "laravel/telescope": "^4.6",
         "laravel/tinker": "^2.5",
         "zarcony/auth": "dev-master",
-        "zarcony/transactions": "dev-master"
+        "zarcony/transactions": "dev-master",
+        "zarcony/reports-manager": "dev-master"
     },
     "require-dev": {
         "facade/ignition": "^2.5",
@@ -58,6 +59,10 @@
         {
             "type": "path",
             "url": "./Libs/zarcony/transactions"
+        },
+        {
+            "type": "path",
+            "url": "./Libs/zarcony/reports-manager"
         }
     ],
     "extra": {

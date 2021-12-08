@@ -11,6 +11,9 @@ use Zarcony\Transactions\Models\TransactionState;
 use Zarcony\Transactions\Jobs\generateTransactions;
 use Zarcony\Transactions\Requests\CreditRequest;
 use Auth;
+use DB;
+use Str;
+
 class AdminController extends Controller
 {
     public function __construct () {
@@ -83,35 +86,109 @@ class AdminController extends Controller
         ];
         return $data;
     }
-    
+
     public function list_transactions(Request $request) {
+        $user_query = false;
+        $uuid = null;
+        if($request->has('user') && $request->input('user') != "null" && $request->input('user') != null) {
+          if(Str::isUuid($request->input('user'))) {
+            $uuid = $request->input('user');
+          } elseif (filter_var($request->input('user'), FILTER_VALIDATE_EMAIL)) {
+            $uuid = User::where('email', '=', $request->input('user'))->first()->uuid;
+          }
+          $user_query = true;
+        }
+
         $per_page = 10;
         if ($request->has('per_page')) {
             $per_page = $request->input('per_page');
         }
-        $transactions = Transaction::query()->with([
-            'state',
-            'reciever.user' => function ($q) {
-                $q->select('uuid','name','phone');
-            },
-            'sender.user' => function($q) {
-                $q->select('uuid','name','phone');
-            }
-        ]);
-        if($request->input('date_from') && $request->input('date_from') != "null") {
-            $date_from = \Carbon\Carbon::create($request->input('date_from'))->startOfDay();
-            $transactions = $transactions->where('created_at', '>=', $date_from);
+        $page = 1;
+        if ($request->has('page')) {
+            $page = $request->input('page');
         }
-        if($request->input('date_to') && $request->input('date_to') != "null") {
-            $date_to = \Carbon\Carbon::create($request->input('date_to'))->endOfDay();
-            $transactions = $transactions->where('created_at', '<=', $date_to);
+        $orderby = 'created_at';
+        if ($request->has('order_by')) {
+            $orderby = $request->input('order_by');
         }
-        if($request->input('user') && $request->input('user') != "null") {
-            $wallet_id = User::where('email', $request->input('user'))->first()->uuid;
-            $transactions = $transactions->where('reciever_identifier', $wallet_id)->orWhere('sender_identifier', $wallet_id);
+        $order = 'desc';
+        if ($request->has('order')) {
+            $order = $request->input('order');
         }
-        $transactions = $transactions->orderBy('created_at','desc')->paginate($per_page);
-        return response()->json($transactions, 200);
+
+        $query_date = false;
+        $date_from = \Carbon\Carbon::createFromTimestamp(0);  
+        if ($request->has('date_from') && $request->input('date_from') != "null" && $request->input('date_from') != null) {
+          $query_date = true;
+          $date_from = \carbon\carbon::create($request->input('date_from'))->startOfDay();
+        }
+        $date_to = \Carbon\Carbon::now();
+        if ($request->has('date_to') && $request->input('date_to') != "null" && $request->input('date_to') != null) {
+          $query_date = true;
+          $date_to = \carbon\carbon::create($request->input('date_to'))->endOfDay();
+        }
+
+        $date_coniditions = $query_date ? "where transactions.created_at >= ? and transactions.created_at <= ?"  : '' ;
+        $offset = $page == 1 ? 0 : ($page - 1) * $per_page;
+        $variables = [1];
+        if($user_query) {
+          if($query_date) {
+            $date_coniditions = $date_coniditions . " and (reciever_identifier = ? or sender_identifier = ?)";
+            $variables = [$date_from,$date_to,$uuid, $uuid];
+          } else {
+            $date_coniditions = "where (reciever_identifier = ? or sender_identifier = ?)";
+            $variables = [$uuid, $uuid];
+          }
+        }
+
+        $parameters = [
+            'transactions.created_at',
+            'transactions.transaction_identifier',
+
+            'transactions.amount',
+            'transactions.is_recharge',
+            'u1.name as SenderName',
+            'u1.uuid as senderIdentifier',
+            'u2.name as recieverName',
+            'u2.uuid as recieverIdentifier',
+            'transaction_states.state_name',
+        ];
+
+
+        $parameters = implode(',',$parameters);
+        $faster = \DB::select("
+            select
+            $parameters
+            from transactions
+            left join users AS u1 on transactions.sender_identifier=u1.uuid
+            left join users AS u2 on transactions.reciever_identifier=u2.uuid
+            left join transaction_states on transactions.state_id=transaction_states.id
+            $date_coniditions
+            order by $orderby $order
+            limit $per_page
+            offset $offset
+            ", $variables);
+
+          $count = \DB::select("
+            select count(*) count
+            from transactions
+            $date_coniditions
+            ", $variables);
+            
+          $results_count = collect($count)->first();
+          $results_count = $results_count->count;
+          $to_page = ( $page == ceil($results_count / $per_page) ) ?  $results_count : $offset + $per_page;
+        $built_response = collect(array(
+            'data'          => $faster,
+            'current_page'  => $page,
+            'from'          => $results_count == 0 ? 0 : $offset + 1,
+            'to'            => $results_count == 0 ? 0 : $to_page,
+            'per_page'      => $per_page,
+            'total' => $results_count,
+            'number_of_pages' => ceil($results_count / $per_page)
+        ));
+        return response()->json($built_response, 200);
+
     }
 
     public function show_transaction($identifier) {

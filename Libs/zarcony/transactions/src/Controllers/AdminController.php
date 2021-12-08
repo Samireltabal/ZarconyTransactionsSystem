@@ -144,7 +144,6 @@ class AdminController extends Controller
         $parameters = [
             'transactions.created_at',
             'transactions.transaction_identifier',
-
             'transactions.amount',
             'transactions.is_recharge',
             'u1.name as SenderName',

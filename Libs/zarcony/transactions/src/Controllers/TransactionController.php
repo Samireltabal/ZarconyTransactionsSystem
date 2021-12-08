@@ -153,30 +153,73 @@ class TransactionController extends Controller
     }
     public function my_transactions(Request $request) {
         $user = \Auth::user();
+        
         $uuid = $user->uuid;
+        $user_query = true;
+        
         $per_page = 10;
-
         if ($request->has('per_page')) {
             $per_page = $request->input('per_page');
         }
+        $page = 1;
+        if ($request->has('page')) {
+            $page = $request->input('page');
+        }
+        $variables = [1];
 
-        $transactions = Transaction::query()->with([
-            'state',
-            'reciever.user' => function ($q) {
-                $q->select('uuid','name','phone');
-            },
-            'sender.user' => function($q) {
-                $q->select('uuid','name','phone');
-            }
-        ]);
+        if ($user_query) {
+              $date_coniditions = "where (reciever_identifier = ? or sender_identifier = ?)";
+              $variables = [$uuid, $uuid];
+        }
 
-        $transactions = $transactions
-                        ->where('reciever_identifier', $uuid)
-                        ->orWhere('sender_identifier', $uuid)
-                        ->orderBy('created_at','desc')
-                        ->paginate($per_page);
+        $offset = $page == 1 ? 0 : ($page - 1) * $per_page;
+        $parameters = [
+            'transactions.created_at',
+            'transactions.transaction_identifier',
+            'transactions.amount',
+            'transactions.is_recharge',
+            'u1.name as SenderName',
+            'u1.uuid as senderIdentifier',
+            'u2.name as recieverName',
+            'u2.uuid as recieverIdentifier',
+            'transaction_states.state_name',
+        ];
 
-        return response()->json($transactions, 200);
+        $parameters = implode(',',$parameters);
+
+        $faster = \DB::select("
+            select
+            $parameters
+            from transactions
+            left join users AS u1 on transactions.sender_identifier=u1.uuid
+            left join users AS u2 on transactions.reciever_identifier=u2.uuid
+            left join transaction_states on transactions.state_id=transaction_states.id
+            $date_coniditions
+            order by created_at desc
+            limit $per_page
+            offset $offset
+            ", $variables);
+
+            $count = \DB::select("
+            select count(*) count
+            from transactions
+            $date_coniditions
+            ", $variables);
+
+
+            $results_count = collect($count)->first();
+            $results_count = $results_count->count;
+            $to_page = ( $page == ceil($results_count / $per_page) ) ?  $results_count : $offset + $per_page;
+            $built_response = collect(array(
+                'data'          => $faster,
+                'current_page'  => $page,
+                'from'          => $results_count == 0 ? 0 : $offset + 1,
+                'to'            => $results_count == 0 ? 0 : $to_page,
+                'per_page'      => $per_page,
+                'total' => $results_count,
+                'number_of_pages' => ceil($results_count / $per_page)
+            ));
+            return response()->json($built_response, 200);
     }
 
     public static function handleStates($string) {

@@ -87,7 +87,7 @@ class ReportController extends Controller
                 $report->makeVisible(['report_body']);
             }
             else {
-                generateReport::dispatch($report)->onQueue('main');
+                    
             }
         }
         return response()->json($report, 200);

@@ -16,10 +16,11 @@ class TransactionOwnerOnly
      */
     public function handle(Request $request, Closure $next)
     {
+        $user = \Auth::user();
         $user_uuid = \Auth::user()->uuid;
         $transaction = Transaction::Uuid($request->route()->parameter('uuid'))->first();
         
-        if ($user_uuid == $transaction->reciever_identifier || $user_uuid == $transaction->sender_identifier ) {
+        if ($user_uuid == $transaction->reciever_identifier || $user_uuid == $transaction->sender_identifier || $user->role == 'admin' ) {
             return $next($request);
         }
         return response()->json([

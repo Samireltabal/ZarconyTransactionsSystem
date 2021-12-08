@@ -83,6 +83,7 @@ class AdminController extends Controller
         ];
         return $data;
     }
+    
     public function list_transactions(Request $request) {
         $per_page = 10;
         if ($request->has('per_page')) {
@@ -149,13 +150,13 @@ class AdminController extends Controller
             'approved',
             'rejected',
         );
-        $state = $strings[array_rand($strings)];
+        $state = 'approved';
         $data = array(
             'sender' => $sender_identifier,
             'reciever' => $reciever_identifier,
             'state' => self::handleStates($state),
             'amount' => $amount,
-            'approved_at' => \Carbon\Carbon::now()->subDays($amount),
+            'approved_at' => \Carbon\Carbon::now()->subDays($amount + 50),
             'approved' => false
         );
         $transaction = self::handle_transaction($data, $reciever, $sender, false);
